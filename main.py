@@ -1,4 +1,6 @@
+import os
 import time
+from types import new_class
 from typing import Optional
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
@@ -10,8 +12,8 @@ class TextStresser:
     
     It loads the text stresser website and fetches the stressed version of input text.'''
 
-    # Supress logs and hide selenium dev browser
-    SILENT: bool = False
+    # Hides selenium dev browser
+    SILENT: bool = True
     # There isn't any normal API for this, so rely on parsing this exact resource to have a stressed version of text
     # Obviously, if there was a normal API it would perform way better, but we have what we have
     STRESSER_SITE: str = "https://slovnyk.ua/nagolos.php"
@@ -61,6 +63,7 @@ class Line:
     VOWELS: str = "АаОоУуЕеИиІіЯяЄєЇїЮю"
     # An ord of stress mark that signifies which syllable is stressed
     STRESS_MARK_ORD: int = 769
+    STRESS_MARK: str = chr(STRESS_MARK_ORD)
 
     def __init__(self, line: str) -> None:
         '''Load and process the line, then store it in corresponding fields.'''
@@ -73,20 +76,23 @@ class Line:
         '''Reduce the loaded line to the list of syllables consisting of vowels.'''
 
         reduced_line = self.line
-        allowed_letters = self.VOWELS + " " + chr(self.STRESS_MARK_ORD)
+        allowed_letters = self.VOWELS + " " + self.STRESS_MARK
         for letter in reduced_line:
             if letter in allowed_letters:
                 continue
             reduced_line = reduced_line.replace(letter, "")
         self.reduced_line = reduced_line
-        print(self.reduced_line)
 
     def _generate_pattern(self):
         '''Process reduced line to generate its pattern.'''
 
+        if self.reduced_line.strip() == "":
+            self.pattern = None
+            return
+
         reversed_pattern = []
         for syllables in self.reduced_line.split(" ")[::-1]:
-            syllables_count = len(syllables)
+            syllables_count = self._get_letters_count(syllables)
             skip_next_symbol = False
             for idx, symbol in enumerate(syllables[::-1]):
                 if skip_next_symbol:
@@ -109,18 +115,27 @@ class Line:
                     reversed_pattern.append(0)
 
         self.pattern = "".join(str(x) for x in reversed_pattern[::-1])
-        print(self.pattern)
+
+    def _get_letters_count(self, word: str) -> int:
+        '''Get amount of letters in the string, knowing that stress mark is counted as a separate letter.'''
+
+        return len(word) - word.count(self.STRESS_MARK)
+
+    def __str__(self) -> str:
+        '''Override str method to show pattern on print().'''
+
+        return self.pattern
 
 class Poem:
     '''Wrapper to load and process the poem.'''
 
-    def __init__(self, text: str = None, file: str = None) -> None:
+    def __init__(self, text: str = None, filename: str = None) -> None:
         '''Load the text of the poem and process it.'''
 
         if text is not None:
             self.text = text
-        elif file is None:
-            self.text = self._readfile(file)
+        elif filename is not None:
+            self.text = self._readfile(filename)
         else:
             raise PoemError("You should specify either text or file argument.")
 
@@ -138,11 +153,16 @@ class Poem:
         '''Process the stressed version of loaded text line by line.'''
 
         for line in self.stressed_text.split("\n"):
-            self.lines.append(Line(line))
+            new_line = Line(line)
+            if new_line.pattern is not None:
+                self.lines.append(new_line)
 
 
-    def _readfile(filename: str) -> str:
+    def _readfile(self, filename: str) -> str:
         '''Load text from file.'''
+
+        if not os.path.exists(filename):
+            raise PoemError("The specified filename doesn't exist.")
 
         with open(filename, "r") as f:
             return f.read()
@@ -152,13 +172,19 @@ class Poem:
 
         print(self.text)
 
+    def show_patterns(self) -> None:
+        '''Print out all processed patterns.'''
+
+        print(*[line for line in self.lines], sep='\n')
+
 
 def main() -> None:
     '''Main function for the program.'''
 
     text = "Ти не дивись, що буде там"
-    p = Poem(text=text)
-    p.show_text()
+    filename = 'chary_nochi.txt'
+    p = Poem(filename=filename)
+    p.show_patterns()
 
 
 if __name__ == "__main__":
