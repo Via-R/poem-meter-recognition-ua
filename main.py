@@ -1,11 +1,21 @@
 import os
 import time
-from types import new_class
-from typing import Optional
+from typing import Optional, Dict
+from enum import Enum
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 
 class PoemError(Exception): pass;
+
+class StressType(Enum):
+    '''Types of stresses in words for pattern generation.'''
+
+    UNKNOWN = 0
+    UNSTRESSED = 1
+    ONE_SYLLABLE = 2
+    TWO_SYLLABLES_FIRST_STRESSED = 3
+    TWO_SYLLABLES_SECOND_STRESSED = 4
+    MORE_THAN_TWO_SYLLABLES = 5
 
 class TextStresser:
     '''Functionality to open selenium webdriver session.
@@ -65,6 +75,10 @@ class Line:
     STRESS_MARK_ORD: int = 769
     STRESS_MARK: str = chr(STRESS_MARK_ORD)
 
+    STRESS_TYPES: Dict[str, int] = {
+        "unstressed"
+    }
+
     def __init__(self, line: str) -> None:
         '''Load and process the line, then store it in corresponding fields.'''
 
@@ -99,20 +113,20 @@ class Line:
                     skip_next_symbol = False
                     continue
                 if ord(symbol) != self.STRESS_MARK_ORD:
-                    reversed_pattern.append(1)
+                    reversed_pattern.append(StressType.UNSTRESSED)
                     continue
                 skip_next_symbol = True
                 if syllables_count == 1:
-                    reversed_pattern.append(2)
+                    reversed_pattern.append(StressType.ONE_SYLLABLE)
                 elif syllables_count == 2:
                     if idx == 0:
-                        reversed_pattern.append(4)
+                        reversed_pattern.append(StressType.TWO_SYLLABLES_SECOND_STRESSED)
                     else:
-                        reversed_pattern.append(3)
+                        reversed_pattern.append(StressType.TWO_SYLLABLES_FIRST_STRESSED)
                 elif syllables_count > 2:
-                    reversed_pattern.append(5)
+                    reversed_pattern.append(StressType.MORE_THAN_TWO_SYLLABLES)
                 else:
-                    reversed_pattern.append(0)
+                    reversed_pattern.append(StressType.UNKNOWN)
 
         self.pattern = "".join(str(x) for x in reversed_pattern[::-1])
 
