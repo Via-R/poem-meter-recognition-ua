@@ -1,16 +1,50 @@
+import time
+from typing import Optional
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
+
 class PoemError(Exception): pass;
 
 class TextStresser:
+    # Supress logs and hide selenium dev browser
+    SILENT = False
+    # There isn't any normal API for this, so rely on parsing this exact resource to have a stressed version of text
+    # Obviously, if there was a normal API it would perform way better, but we have what we have
+    STRESSER_SITE = "https://slovnyk.ua/nagolos.php"
+
     def __init__(self) -> None:
-        pass
+        op = webdriver.ChromeOptions()
+        if self.SILENT:
+           op.add_argument('headless')
+        self.driver = webdriver.Chrome(options=op)
+
+    def cleanup(self):
+        self.driver.close()
+
+    def wait_for_result(self, retries: int = 3, timeout: int = 1) -> Optional[str]:
+        while retries > 0:
+            try:
+                return self.driver.find_element_by_id('emph').get_attribute('textContent').strip()
+            except NoSuchElementException:
+                time.sleep(timeout)
+                retries -= 1
+
+        return None
 
     def stress(self, text):
-        return text
+        self.driver.get(self.STRESSER_SITE)
+        input_area = self.driver.find_element_by_tag_name('textarea')
+        input_area.send_keys(text)
+        submit_button = self.driver.find_element_by_xpath('//button[@type="submit"]')
+        submit_button.click()
+        stressed_text = self.wait_for_result()
+        
+        return stressed_text
 
 class Line:
-    vowels = "АаОоУуЕеИиІіЯяЄєЇїЮю"
+    VOWELS = "АаОоУуЕеИиІіЯяЄєЇїЮю"
     # stressed_vowels = "А́а́Е́е́Є́є́И́и́І́і́Ї́ї́О́о́У́у́Ю́ю́Я́я́"
-    stress_mark_ord = 769
+    STRESS_MARK_ORD = 769
 
     def __init__(self, line: str) -> None:
         self.line = line
@@ -19,7 +53,7 @@ class Line:
 
     def _make_reduced_line(self):
         reduced_line = self.line
-        allowed_letters = self.vowels + " " + chr(self.stress_mark_ord)
+        allowed_letters = self.VOWELS + " " + chr(self.STRESS_MARK_ORD)
         for letter in reduced_line:
             if letter in allowed_letters:
                 continue
@@ -36,7 +70,7 @@ class Line:
                 if skip_next_symbol:
                     skip_next_symbol = False
                     continue
-                if ord(symbol) != self.stress_mark_ord:
+                if ord(symbol) != self.STRESS_MARK_ORD:
                     reversed_pattern.append(1)
                     continue
                 skip_next_symbol = True
@@ -70,7 +104,7 @@ class Poem:
         self._process_lines()
 
     def _process_text(self) -> None:
-        self.stressed_text = self.text_stresser.stress(self.text)
+        self.stressed_text = self.text_stresser.stress(self.text) or self.text
 
     def _process_lines(self) -> None:
         for line in self.stressed_text.split("\n"):
