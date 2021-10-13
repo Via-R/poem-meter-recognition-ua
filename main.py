@@ -9,7 +9,8 @@ class TextStresser:
 
 class Line:
     vowels = "АаОоУуЕеИиІіЯяЄєЇїЮю"
-    stressed_vowels = "А́а́Е́е́Є́є́И́и́І́і́Ї́ї́О́о́У́у́Ю́ю́Я́я́"
+    # stressed_vowels = "А́а́Е́е́Є́є́И́и́І́і́Ї́ї́О́о́У́у́Ю́ю́Я́я́"
+    stress_mark_ord = 769
 
     def __init__(self, line: str) -> None:
         self.line = line
@@ -18,7 +19,7 @@ class Line:
 
     def _make_reduced_line(self):
         reduced_line = self.line
-        allowed_letters = self.vowels + self.stressed_vowels + " "
+        allowed_letters = self.vowels + " " + chr(self.stress_mark_ord)
         for letter in reduced_line:
             if letter in allowed_letters:
                 continue
@@ -27,26 +28,31 @@ class Line:
         print(self.reduced_line)
 
     def _generate_pattern(self):
-        pattern = []
-        for syllables in self.reduced_line.split(" "):
+        reversed_pattern = []
+        for syllables in self.reduced_line.split(" ")[::-1]:
             syllables_count = len(syllables)
-            for idx, vowel in enumerate(syllables):
-                if vowel not in self.stressed_vowels:
-                    pattern.append(1)
+            skip_next_symbol = False
+            for idx, symbol in enumerate(syllables[::-1]):
+                if skip_next_symbol:
+                    skip_next_symbol = False
                     continue
+                if ord(symbol) != self.stress_mark_ord:
+                    reversed_pattern.append(1)
+                    continue
+                skip_next_symbol = True
                 if syllables_count == 1:
-                    pattern.append(2)
+                    reversed_pattern.append(2)
                 elif syllables_count == 2:
                     if idx == 0:
-                        pattern.append(3)
+                        reversed_pattern.append(4)
                     else:
-                        pattern.append(4)
+                        reversed_pattern.append(3)
                 elif syllables_count > 2:
-                    pattern.append(5)
+                    reversed_pattern.append(5)
                 else:
-                    pattern.append(0)
+                    reversed_pattern.append(0)
 
-        self.pattern = "".join(str(x) for x in pattern)
+        self.pattern = "".join(str(x) for x in reversed_pattern[::-1])
         print(self.pattern)
 
 class Poem:
