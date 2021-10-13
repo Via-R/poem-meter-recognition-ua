@@ -1,13 +1,12 @@
 import os
 import time
-from typing import Optional, Dict
-from enum import Enum
+from typing import Optional, Dict, List
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 
 class PoemError(Exception): pass;
 
-class StressType(Enum):
+class StressType:
     '''Types of stresses in words for pattern generation.'''
 
     UNKNOWN = 0
@@ -16,6 +15,16 @@ class StressType(Enum):
     TWO_SYLLABLES_FIRST_STRESSED = 3
     TWO_SYLLABLES_SECOND_STRESSED = 4
     MORE_THAN_TWO_SYLLABLES = 5
+
+class MeterType:
+    '''Types of metrical feet.'''
+
+    IAMB = "ямб"
+    CHOREE = "хорей"
+    DACTYL = "дактиль"
+    AMPHIBRACH = "амфібрахій"
+    ANAPEST = "анапест"
+    UNKNOWN = "невизначений"
 
 class TextStresser:
     '''Functionality to open selenium webdriver session.
@@ -85,6 +94,7 @@ class Line:
         self.line = line
         self._make_reduced_line()
         self._generate_pattern()
+        self._recognise_meter()
 
     def _make_reduced_line(self):
         '''Reduce the loaded line to the list of syllables consisting of vowels.'''
@@ -135,10 +145,75 @@ class Line:
 
         return len(word) - word.count(self.STRESS_MARK)
 
+    def _recognise_meter(self):
+        '''Make assumption on which metrical foot this line belongs to.'''
+
+        if self.pattern is None:
+            return
+
+        two_syllables_types = (StressType.UNSTRESSED, StressType.ONE_SYLLABLE)
+
+        # Checking for iamb
+        for i in range(0, len(self.pattern), 2):
+            if int(self.pattern[i]) not in two_syllables_types:
+                break
+        else:
+            self.meter = MeterType.IAMB
+            return
+
+        # Checking for choree
+        for i in range(1, len(self.pattern), 2):
+            if int(self.pattern[i]) not in two_syllables_types:
+                break
+        else:
+            self.meter = MeterType.CHOREE
+            return
+
+        three_syllables_types1 = (StressType.UNSTRESSED, StressType.ONE_SYLLABLE, StressType.TWO_SYLLABLES_FIRST_STRESSED)
+        three_syllables_types2 = (StressType.UNSTRESSED, StressType.ONE_SYLLABLE, StressType.TWO_SYLLABLES_SECOND_STRESSED)
+        
+        # Checking for dactyl
+        for i in range(1, len(self.pattern), 3):
+            if int(self.pattern[i]) not in three_syllables_types1:
+                break
+        else:
+            for i in range(2, len(self.pattern), 3):
+                if int(self.pattern[i]) not in three_syllables_types2:
+                    break
+            else:
+                self.meter = MeterType.DACTYL
+                return
+
+        # Checking for amphibrach
+        for i in range(0, len(self.pattern), 3):
+            if int(self.pattern[i]) not in three_syllables_types2:
+                break
+        else:
+            for i in range(2, len(self.pattern), 3):
+                if int(self.pattern[i]) not in three_syllables_types1:
+                    break
+            else:
+                self.meter = MeterType.AMPHIBRACH
+                return
+
+        # Checking for anapest
+        for i in range(0, len(self.pattern), 3):
+            if int(self.pattern[i]) not in three_syllables_types1:
+                break
+        else:
+            for i in range(1, len(self.pattern), 3):
+                if int(self.pattern[i]) not in three_syllables_types2:
+                    break
+            else:
+                self.meter = MeterType.ANAPEST
+                return
+
+        self.meter = MeterType.UNKNOWN
+
     def __str__(self) -> str:
         '''Override str method to show pattern on print().'''
 
-        return self.pattern
+        return f"{self.pattern}: {self.meter}"
 
 class Poem:
     '''Wrapper to load and process the poem.'''
@@ -154,9 +229,10 @@ class Poem:
             raise PoemError("You should specify either text or file argument.")
 
         self.text_stresser = TextStresser()
-        self.lines = []
+        self.lines: List[Line] = []
         self._process_text()
         self._process_lines()
+        self._calculate_results()
 
     def _process_text(self) -> None:
         '''Get the stressed version of the loaded text.'''
@@ -171,6 +247,19 @@ class Poem:
             if new_line.pattern is not None:
                 self.lines.append(new_line)
 
+    def _calculate_results(self) -> None:
+        '''Get statistics from lines and make final assumption about meter foot of the poem.'''
+
+        meters_found = {}
+
+        for line in self.lines:
+            if line.meter not in meters_found:
+                meters_found[line.meter] = 0
+
+            meters_found[line.meter] += 1
+
+        self.meter = max(meters_found, key=meters_found.get)
+        self.meter_probability = meters_found[self.meter] / len(self.lines)
 
     def _readfile(self, filename: str) -> str:
         '''Load text from file.'''
@@ -191,14 +280,19 @@ class Poem:
 
         print(*[line for line in self.lines], sep='\n')
 
+    def show_meter_type(self) -> None:
+        '''Shows final result of calculations.'''
+
+        print(f"Віршовий розмір: {self.meter}, ймовірність {self.meter_probability}")
+
 
 def main() -> None:
     '''Main function for the program.'''
 
     text = "Ти не дивись, що буде там"
-    filename = 'chary_nochi.txt'
+    filename = 'choree.txt'
     p = Poem(filename=filename)
-    p.show_patterns()
+    p.show_meter_type()
 
 
 if __name__ == "__main__":
