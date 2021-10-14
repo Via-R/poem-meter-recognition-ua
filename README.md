@@ -20,3 +20,5 @@ Simply run the `main.py`:
 
 ## Afternote
 You can edit the `main.py` to either load a custom string or to load files from `poems` folder. You can also load your custom files by changing the way the `Poem` class is instantiated in `main.py`.
+
+If you're interested in the details of implemetation, you can read more in the papers in `docs` folder (papers are written in Russian).
