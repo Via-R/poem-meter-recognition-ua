@@ -122,7 +122,7 @@ class Line:
                 if skip_next_symbol:
                     skip_next_symbol = False
                     continue
-                if ord(symbol) != self.STRESS_MARK_ORD:
+                if ord(symbol) != self.STRESS_MARK_ORD and syllables_count > 1:
                     reversed_pattern.append(StressType.UNSTRESSED)
                     continue
                 skip_next_symbol = True
@@ -289,11 +289,14 @@ class Poem:
 def main() -> None:
     '''Main function for the program.'''
 
-    text = "Ти не дивись, що буде там"
-    filename = 'choree.txt'
-    p = Poem(filename=filename)
-    p.show_meter_type()
-
+    # text = "Ти не дивись, що буде там"
+    # p = Poem(text=text)
+    available_files = ['choree.txt', 'amphibrach.txt', 'anapest.txt', 'dactyl.txt', 'iamb.txt']
+    for filename in available_files:
+        print(f"{filename} | ", end='')
+        p = Poem(filename=filename)
+        p.show_meter_type()
+    
 
 if __name__ == "__main__":
     main()
